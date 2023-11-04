@@ -15,7 +15,7 @@ export class PipelineStack extends cdk.Stack {
     const envPrefix = 'dev';
     const githubSecretName = 'github-token';
     const githubOwner = 'Connie-B';
-    const githubRepo = 'zdev-aws-web-app';
+    const githubRepo = 'aws-simple-java-web-app';
     const githubBranch = 'main';
 
 
