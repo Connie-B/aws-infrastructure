@@ -36,12 +36,18 @@ export class InstanceBuilder {
     });
     webSecurityGroup.addIngressRule(
       Peer.anyIpv4(),
-      Port.tcp(80)
+      Port.tcp(80),
+      'Allow HTTP access'
+    );
+    webSecurityGroup.addIngressRule(
+      Peer.anyIpv4(),
+      Port.tcp(443),
+      'Allow HTTPS access'
     );
     webSecurityGroup.addIngressRule(
       Peer.anyIpv4(),
       Port.tcp(22),
-      'Allow ssh access from the world'
+      'Allow SSH access'
     );
 
     // the AMI to be used for the EC2 Instance
