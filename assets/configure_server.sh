@@ -27,19 +27,7 @@ sudo yum install -y java-1.8*
 echo "-xxxxxxxxxx Installing Tomcat"
 cd /opt
 wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.80/bin/apache-tomcat-9.0.80.tar.gz
+mv apache-tomcat-9.0.80.tar.gz tomcat.tar.gz
 tar -zxvf apache-tomcat-9.0.80.tar.gz
 
-# Change Tomcat to port 80
-echo "-xxxxxxxxxx Setting Tomcat port"
-cd apache-tomcat-9.0.80
-cd conf
-sed -i.bak 's/port="8080"/port="80"/g' server.xml
-
-# Start Tomcat
-echo "-xxxxxxxxxx Starting Tomcat"
-cd ../bin
-sudo ./startup.sh
-
-
 echo "-xxxxxxxxxx End of server configuration script xxxxxxxxxx-"
-
