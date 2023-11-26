@@ -13,7 +13,7 @@ export class VpcStack extends Stack {
 
     // environment specific variables
     const envPrefix = 'dev';
-    const webServerKeyName = 'awsKeyPair';
+    const webServerKeyName = 'devKeyPair';
     const dbUsername = 'admin';
     const dbCredsSecretName = 'mysql-token';
 
