@@ -1,8 +1,8 @@
 {
-  "name": "aws-tomcat-mysql-pipeline",
+  "name": "aws-apache-tomcat-mysql",
   "version": "0.1.0",
   "bin": {
-    "aws-tomcat-mysql-pipeline": "bin/aws-tomcat-mysql-pipeline.js"
+    "aws-apache-tomcat-mysql": "bin/aws-apache-tomcat-mysql.js"
   },
   "scripts": {
     "build": "tsc",

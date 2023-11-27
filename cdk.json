@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/aws-tomcat-mysql-pipeline.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/aws-apache-tomcat-mysql.ts",
   "watch": {
     "include": [
       "**"

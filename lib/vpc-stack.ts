@@ -3,7 +3,8 @@ import { Construct } from 'constructs';
 import { Peer, Port, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
 
 import { VpcBuilder } from './vpc-builder'
-import { InstanceBuilder } from './instance-builder'
+import { WebInstanceBuilder as WebInstanceBuilder } from './web-instance-builder'
+import { AppInstanceBuilder as AppInstanceBuilder } from './app-instance-builder'
 import { BastionHostLinuxBuilder } from './bastion-host-linux-builder'
 import { DatabaseClusterBuilder } from './database-cluster-builder'
 
@@ -13,7 +14,9 @@ export class VpcStack extends Stack {
 
     // environment specific variables
     const envPrefix = 'dev';
+    const appServerKeyName = 'devKeyPair';
     const webServerKeyName = 'devKeyPair';
+    const bastionServerKeyName = 'devKeyPair';
     const dbUsername = 'admin';
     const dbCredsSecretName = 'mysql-token';
 
@@ -22,12 +25,6 @@ export class VpcStack extends Stack {
     const vpc = VpcBuilder.buildVpc(this, `${envPrefix}-Vpc`);
     // Create flowlog and log the vpc traffic into cloudwatch
     vpc.addFlowLog(`${envPrefix}-VpcFlowLog`);
-
-    // create web server instance
-    const webServer = InstanceBuilder.buildInstance(this, `${envPrefix}-WebServer`, {
-      vpc: vpc, 
-      keyName: webServerKeyName
-    });
 
 
     // Create security group for bastion host
@@ -44,9 +41,68 @@ export class VpcStack extends Stack {
     // create bastion host
     const bastionHostLinux = BastionHostLinuxBuilder.buildBastionHost(this, `${envPrefix}-Bastion`, {
       vpc: vpc,
-      keyName: webServerKeyName,
+      keyName: bastionServerKeyName,
       securityGroup: bastionSecurityGroup
     });
+
+
+    // Create SecurityGroup for the Web server
+    const webServerSecurityGroup = new SecurityGroup(this, `${id}-WebServerSecurityGroup`,{
+      vpc: vpc,
+      allowAllOutbound: true,
+      description: 'Allows Inbound HTTP traffic to the web server.',
+      securityGroupName: 'WebSecurityGroup'
+    });
+    webServerSecurityGroup.addIngressRule(
+      Peer.anyIpv4(),
+      Port.tcp(80),
+      'Allow HTTP access'
+    );
+    webServerSecurityGroup.addIngressRule(
+      Peer.anyIpv4(),
+      Port.tcp(443),
+      'Allow HTTPS access'
+    );
+    webServerSecurityGroup.addIngressRule(
+      bastionSecurityGroup,
+      Port.tcp(22),
+      'Allow SSH access from bastion host'
+    );
+    // create web server instance
+    const webServer = WebInstanceBuilder.buildInstance(this, `${envPrefix}-WebServer`, {
+      vpc: vpc, 
+      keyName: webServerKeyName,
+      securityGroup: webServerSecurityGroup
+    });
+    // webServer depends on bastionHostLinux
+    webServer.node.addDependency(bastionHostLinux)
+
+
+    // Create SecurityGroup for the App server
+    const appServerSecurityGroup = new SecurityGroup(this, `${id}-AppServerSecurityGroup`,{
+      vpc: vpc,
+      allowAllOutbound: true,
+      description: 'Allows Inbound HTTP traffic to the app server.',
+      securityGroupName: 'AppServerSecurityGroup'
+    });
+    appServerSecurityGroup.addIngressRule(
+      webServerSecurityGroup,
+      Port.tcp(8009),
+      'Allow access from web server'
+    );
+    appServerSecurityGroup.addIngressRule(
+      bastionSecurityGroup,
+      Port.tcp(22),
+      'Allow access from bastion host'
+    );
+    // create application server instance
+    const appServer = AppInstanceBuilder.buildInstance(this, `${envPrefix}-AppServer`, {
+      vpc: vpc, 
+      keyName: appServerKeyName,
+      securityGroup: appServerSecurityGroup
+    });
+    // appServer depends on bastionHostLinux
+    appServer.node.addDependency(bastionHostLinux)
 
 
     // Create security group for RDS cluster
@@ -65,23 +121,28 @@ export class VpcStack extends Stack {
       databasename: `${envPrefix}database`.toLowerCase()
     });
     cluster.connections.allowDefaultPortFrom(bastionSecurityGroup, 'Allow access from bastion host');
+    cluster.connections.allowDefaultPortFrom(appServerSecurityGroup, 'Allow access from App server');
 
 
     // Output the details we need to connect to the servers
     
     // Output the public IP address of the Web Server instance
     new CfnOutput(this, "Web Server IP Address", {
-    value: webServer.instancePublicIp
+      value: webServer.instancePublicIp
+    });
+    // Output the private IP address of the Web Server instance
+    new CfnOutput(this, "Web Server Private IP Address", {
+      value: webServer.instancePrivateIp
     });
 
-    // Output the DNS Name of the Web Server instance
-    new CfnOutput(this, "Web Server DNS Name", {
-    value: webServer.instancePublicDnsName
+    // Output the private IP address of the App Server instance
+    new CfnOutput(this, "App Server Private IP Address", {
+      value: appServer.instancePrivateIp
     });
 
     // Output the DNS Name of the Bastion host
     new CfnOutput(this, "Bastion Host DNS Name", { 
-    value: bastionHostLinux.instancePublicDnsName 
+      value: bastionHostLinux.instancePublicDnsName 
     });
 
 	  // Exported attributes can be accessed later from another stack in the same AWS account and region
@@ -91,7 +152,19 @@ export class VpcStack extends Stack {
       exportName: `${envPrefix}-vpc-id`,
       value: vpc.vpcId
     })
-	
+
+    // Output the ID of the Web Server Instance
+    new CfnOutput(this, "Web Server Instance ID", {
+      exportName: `${envPrefix}-web-server-instance-id`,
+      value: webServer.instanceId
+    });
+    
+    // Output the ID of the App Server Instance
+    new CfnOutput(this, "App Server Instance ID", {
+      exportName: `${envPrefix}-app-server-instance-id`,
+      value: appServer.instanceId
+    });
+
     // Export the Identifier of the DB Cluster
     new CfnOutput(this, 'DB Cluster Identifier', {
       exportName: `${envPrefix}-db-cluster-id`,

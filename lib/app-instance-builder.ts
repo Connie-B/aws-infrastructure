@@ -7,47 +7,25 @@ import { Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { readFileSync } from 'fs';
 
 
-export interface InstanceConfig {
+export interface AppInstanceConfig {
   vpc: IVpc,
-  keyName: string
+  keyName: string,
+  securityGroup: SecurityGroup
 }
 
-export class InstanceBuilder {
+export class AppInstanceBuilder {
 
-  static buildInstance(scope: Construct, id: string, config: InstanceConfig) {
+  static buildInstance(scope: Construct, id: string, config: AppInstanceConfig) {
 
     // Create a Role and attach the needed managed IAM Policies
-    const webServerRole = new Role(scope,`${id}-Role`, {
+    const appServerRole = new Role(scope,`${id}-Role`, {
       assumedBy: new ServicePrincipal("ec2.amazonaws.com")
     });
-    webServerRole.addManagedPolicy(
+    appServerRole.addManagedPolicy(
       ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore")
     );
-    webServerRole.addManagedPolicy(
+    appServerRole.addManagedPolicy(
       ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonEC2RoleforAWSCodeDeploy")
-    );
-
-    // Create SecurityGroup for the Web server
-    const webSecurityGroup = new SecurityGroup(scope, `${id}-SecurityGroup`,{
-      vpc: config.vpc,
-      allowAllOutbound: true,
-      description: 'Allows Inbound HTTP traffic to the web server.',
-      securityGroupName: 'WebSecurityGroup'
-    });
-    webSecurityGroup.addIngressRule(
-      Peer.anyIpv4(),
-      Port.tcp(80),
-      'Allow HTTP access'
-    );
-    webSecurityGroup.addIngressRule(
-      Peer.anyIpv4(),
-      Port.tcp(443),
-      'Allow HTTPS access'
-    );
-    webSecurityGroup.addIngressRule(
-      Peer.anyIpv4(),
-      Port.tcp(22),
-      'Allow SSH access'
     );
 
     // the AMI to be used for the EC2 Instance
@@ -64,17 +42,17 @@ export class InstanceBuilder {
         InstanceSize.MICRO
       ),
       machineImage: ami,
-      securityGroup: webSecurityGroup,
-      vpcSubnets: { subnetType: SubnetType.PUBLIC },
-      role: webServerRole,
+      securityGroup: config.securityGroup,
+      vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
+      role: appServerRole,
       keyName: config.keyName
     });
     // The user data is used to bootstrap the EC2 instance and install specific application packages on the instance's first boot. 
-    const webServerUserData = readFileSync('./assets/configure_server.sh','utf-8');
-    newInstance.addUserData(webServerUserData);
+    const appServerUserData = readFileSync('./assets/configure_app_server.sh','utf-8');
+    newInstance.addUserData(appServerUserData);
     
     // The tags are used by Systems Manager to identify the instance later on for deployments.
-    Tags.of(newInstance).add('application-name',`${id}-App`);
+    Tags.of(newInstance).add('instance-name',`${id}-Instance`);
     Tags.of(newInstance).add('stage',`${id}`);
 
     return newInstance;
