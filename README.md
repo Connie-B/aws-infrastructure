@@ -1,3 +1,5 @@
+![architecture diagram](images/architecture.png)
+
 ## AWS Apache Tomcat MySql Bastion Stack
 
 * Creates a VPC with public, private, and isolated subnets.
